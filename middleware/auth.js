@@ -1,4 +1,3 @@
-// middleware/auth.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
@@ -15,9 +14,10 @@ module.exports = async function (req, res, next) {
 
     if (!user) return res.status(401).json({ error: 'Invalid token' });
 
-    req.user = user; // attaches role, email, etc.
+    req.user = user;
     next();
   } catch (err) {
+    console.error(err);
     res.status(401).json({ error: 'Invalid token' });
   }
 };
