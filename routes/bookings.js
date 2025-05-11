@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const Booking = require('../models/Booking');
 const Event = require('../models/Event');
 const User = require('../models/User');
@@ -61,7 +62,6 @@ router.post('/', auth, async (req, res) => {
   const fileName = `qr-${booking._id}.png`;
   const filePath = path.join(__dirname, '../private_qrs', fileName);
 
-  // Extract base64 and save image to file system
   const base64Data = qrBase64.replace(/^data:image\/png;base64,/, "");
   fs.writeFileSync(filePath, base64Data, 'base64');
 
@@ -74,7 +74,9 @@ router.post('/', auth, async (req, res) => {
   const user = await User.findById(req.user._id);
   const userEmail = user.email;
 
-  const qrLink = `${req.protocol}://${req.get('host')}/api/bookings/qr/${booking._id}`;
+  const qrToken = jwt.sign({ id: booking._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const qrLink = `${req.protocol}://${req.get('host')}/api/bookings/qr/${booking._id}?token=${qrToken}`;
+
   const emailHTML = `
     <h2>Booking Confirmed!</h2>
     <p>You booked <strong>${quantity}</strong> ticket(s) to <strong>${event.title}</strong> at <strong>${event.venue}</strong>.</p>
@@ -88,14 +90,26 @@ router.post('/', auth, async (req, res) => {
   res.json(booking);
 });
 
-// Authenticated QR code fetcher
-router.get('/qr/:id', auth, async (req, res) => {
-  const booking = await Booking.findById(req.params.id);
-  if (!booking || booking.user.toString() !== req.user._id) {
-    return res.status(403).json({ error: 'Access denied' });
+// QR code fetcher with token-based validation
+router.get('/qr/:id', async (req, res) => {
+  try {
+    const token = req.query.token;
+    if (!token) return res.status(401).json({ error: 'Token required' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.id !== req.params.id) {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    const filePath = path.join(__dirname, '../private_qrs', booking.qrCode);
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error(err);
+    res.status(403).json({ error: 'Unauthorized access' });
   }
-  const filePath = path.join(__dirname, '../private_qrs', booking.qrCode);
-  res.sendFile(filePath);
 });
 
 // Validate booking by QR code string
