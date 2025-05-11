@@ -15,6 +15,8 @@ router.get('/', async (req, res) => {
     nextDate.setDate(nextDate.getDate() + 1);
     filter.date = { $gte: date, $lt: nextDate };
   }
+  if (req.query.venue) filter.venue = req.query.venue;
+  
   try {
     const events = await Event.find(filter);
     res.json(events);
