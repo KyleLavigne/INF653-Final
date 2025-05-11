@@ -44,9 +44,16 @@ router.put('/:id', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
   const event = await Event.findById(req.params.id);
   if (!event) return res.status(404).json({ error: 'Event not found' });
-  if (req.body.seatCapacity < event.bookedSeats) {
-    return res.status(400).json({ error: 'Cannot reduce seat capacity below booked seats' });
+
+  if (
+    req.body.seatCapacity !== undefined &&
+    req.body.seatCapacity < event.bookedSeats
+  ) {
+    return res.status(400).json({
+      error: `Cannot reduce seat capacity (${req.body.seatCapacity}) below currently booked seats (${event.bookedSeats})`
+    });
   }
+
   Object.assign(event, req.body);
   await event.save();
   res.json(event);
