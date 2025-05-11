@@ -53,10 +53,12 @@ router.post('/', auth, async (req, res) => {
   const event = await Event.findById(eventId);
   if (!event) return res.status(404).json({ error: 'Event not found' });
 
+  // Check if the event is already fully booked
   if (event.bookedSeats + quantity > event.seatCapacity) {
     return res.status(400).json({ error: 'Not enough available seats' });
   }
 
+  // Generate QR code
   const booking = new Booking({ user: req.user._id, event: eventId, quantity });
   const qrBase64 = await generateQRCode(`BOOKING:${booking._id}`);
   const fileName = `qr-${booking._id}.png`;
@@ -66,9 +68,11 @@ router.post('/', auth, async (req, res) => {
   }
   const filePath = path.join(qrDir, fileName);
 
+  // Save QR code to file
   const base64Data = qrBase64.replace(/^data:image\/png;base64,/, "");
   fs.writeFileSync(filePath, base64Data, 'base64');
 
+  
   booking.qrCode = fileName;
   await booking.save();
 
