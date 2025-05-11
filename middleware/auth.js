@@ -1,12 +1,23 @@
+// middleware/auth.js
 const jwt = require('jsonwebtoken');
-module.exports = function (req, res, next) {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ error: 'Access Denied' });
+const User = require('../models/User');
+
+module.exports = async function (req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified;
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+    req.user = user; // attaches role, email, etc.
     next();
   } catch (err) {
-    res.status(400).json({ error: 'Invalid Token' });
+    res.status(401).json({ error: 'Invalid token' });
   }
 };
