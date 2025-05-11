@@ -60,7 +60,11 @@ router.post('/', auth, async (req, res) => {
   const booking = new Booking({ user: req.user._id, event: eventId, quantity });
   const qrBase64 = await generateQRCode(`BOOKING:${booking._id}`);
   const fileName = `qr-${booking._id}.png`;
-  const filePath = path.join(__dirname, '../private_qrs', fileName);
+  const qrDir = path.join(__dirname, '../private_qrs');
+  if (!fs.existsSync(qrDir)) {
+    fs.mkdirSync(qrDir, { recursive: true });
+  }
+  const filePath = path.join(qrDir, fileName);
 
   const base64Data = qrBase64.replace(/^data:image\/png;base64,/, "");
   fs.writeFileSync(filePath, base64Data, 'base64');
